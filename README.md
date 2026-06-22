@@ -26,3 +26,15 @@ graph LR
     class WebApp,Cognito,Agent,LLM,Lambda purple;
     class Gateway green;
 ```
+
+## Cognito login setup
+
+This app now signs users in against an AWS Cognito User Pool. Create a local `.env` file with these values:
+
+```env
+VITE_AWS_REGION=ap-south-1
+VITE_AWS_COGNITO_USER_POOL_ID=ap-south-1_XXXXXXXXX
+VITE_AWS_COGNITO_USER_POOL_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Then restart the Vite dev server. The login page will authenticate the Cognito user and open the normal chat app after a successful sign-in.
