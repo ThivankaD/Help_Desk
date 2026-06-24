@@ -129,6 +129,7 @@
   min-height: 100vh;
   background: linear-gradient(135deg, #1607e4 0%, #1607e4 24%, #ffffff 24%, #ffffff 100%);
   color: #1f2937;
+
 }
 
 .chat-header {
@@ -139,6 +140,9 @@
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 2px 12px rgba(14, 23, 38, 0.08);
+   position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .header-left {
@@ -249,6 +253,9 @@
   padding: 16px 20px;
   background-color: rgba(255, 255, 255, 0.96);
   border-top: 1px solid #e5e7eb;
+  position: sticky;
+  bottom: 0;
+  z-index: 100;
 }
 
 .input-container textarea {
@@ -329,4 +336,59 @@
   .message-bubble {
     max-width: 88%;
   }
+}
+
+/* ── Add these to your existing App.css ─────────────────────────── */
+
+/* Blinking cursor while agent streams */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.streaming-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  animation: blink 0.8s step-start infinite;
+}
+
+/* Preserve newlines in agent responses (weather, lists, etc.) */
+.message-bubble p {
+  white-space: pre-line;
+  margin: 0;
+}
+
+/* Dim the textarea and send button while streaming */
+.input-container textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Markdown inside bot bubbles */
+.markdown-body p {
+  margin: 0 0 8px 0;
+}
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+.markdown-body ul,
+.markdown-body ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+.markdown-body li {
+  margin: 4px 0;
+}
+.markdown-body strong {
+  font-weight: 600;
+}
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 {
+  margin: 8px 0 4px 0;
+  font-size: 1em;
 }

@@ -1,45 +1,77 @@
 import { signOut } from 'aws-amplify/auth'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Message } from '../lib/messages'
 import { createWelcomeMessage } from '../lib/messages'
+import { streamAgentResponse } from '../lib/agentservice.ts'
+import ReactMarkdown from 'react-markdown'
+
 import logo from '../assets/logo.png'
 
 interface ChatPageProps {
   onLogout: () => void
 }
 
+// One stable session ID per browser tab
+const SESSION_ID = crypto.randomUUID()
+
 export function ChatPage({ onLogout }: ChatPageProps) {
-  const [messages, setMessages] = useState<Message[]>([createWelcomeMessage()])
-  const [input, setInput] = useState('')
+  const [messages, setMessages]     = useState<Message[]>([createWelcomeMessage()])
+  const [input, setInput]           = useState('')
+  const [isStreaming, setIsStreaming] = useState(false)
+  const bottomRef                   = useRef<HTMLDivElement>(null)
 
-  const handleSend = () => {
-    if (input.trim()) {
-      const userMessage: Message = {
-        id: Date.now().toString(),
-        text: input,
-        sender: 'user',
-        timestamp: new Date(),
-      }
-      setMessages([...messages, userMessage])
-      setInput('')
+  // Auto-scroll whenever messages update
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
-      // Simulate bot response
-      setTimeout(() => {
-        const botMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          text: 'Thank you for your message! I am processing your request.',
-          sender: 'bot',
-          timestamp: new Date(),
-        }
-        setMessages((prev) => [...prev, botMessage])
-      }, 500)
+  const handleSend = async () => {
+    const text = input.trim()
+    if (!text || isStreaming) return
+
+    // 1. Add user message
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      text,
+      sender: 'user',
+      timestamp: new Date(),
     }
+
+    // 2. Add empty bot bubble we'll stream into
+    const botId = `bot-${Date.now()}`
+    const botMsg: Message = {
+      id: botId,
+      text: '',
+      sender: 'bot',
+      timestamp: new Date(),
+    }
+
+    setMessages(prev => [...prev, userMsg, botMsg])
+    setInput('')
+    setIsStreaming(true)
+
+    await streamAgentResponse(text, SESSION_ID, {
+      onChunk: (chunk) => {
+        setMessages(prev =>
+          prev.map(m => m.id === botId ? { ...m, text: m.text + chunk } : m)
+        )
+      },
+      onDone: () => {
+        setIsStreaming(false)
+      },
+      onError: (err) => {
+        setMessages(prev =>
+          prev.map(m => m.id === botId ? { ...m, text: `⚠️ ${err}` } : m)
+        )
+        setIsStreaming(false)
+      },
+    })
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSend()
+      void handleSend()
     }
   }
 
@@ -51,6 +83,9 @@ export function ChatPage({ onLogout }: ChatPageProps) {
     }
   }
 
+  // The last message (used to show blinking cursor)
+  const lastMsg = messages[messages.length - 1]
+
   return (
     <div className="chat-container">
       <div className="chat-header">
@@ -58,7 +93,7 @@ export function ChatPage({ onLogout }: ChatPageProps) {
           <img src={logo} alt="Bytes Commerce Logo" className="logo" />
           <div className="header-content">
             <h1>Help Desk</h1>
-            <p>Customer Service Agent</p>
+            
           </div>
         </div>
         <button className="logout-btn" onClick={handleLogout}>
@@ -70,10 +105,18 @@ export function ChatPage({ onLogout }: ChatPageProps) {
         {messages.map((message) => (
           <div key={message.id} className={`message ${message.sender}`}>
             <div className="message-bubble">
-              <p>{message.text}</p>
+              <div className="markdown-body">
+                <ReactMarkdown>
+                  {message.text || (isStreaming && message.id === lastMsg?.id ? '' : '…')}
+                </ReactMarkdown>
+                {isStreaming && message.id === lastMsg?.id && (
+                  <span className="streaming-cursor">▪️▪️▪️</span>
+                )}
+              </div>
             </div>
           </div>
         ))}
+        <div ref={bottomRef} />
       </div>
 
       <div className="input-container">
@@ -81,11 +124,16 @@ export function ChatPage({ onLogout }: ChatPageProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type your message here..."
+          placeholder={isStreaming ? 'Agent is typing…' : 'Type your message here...'}
           rows={1}
+          disabled={isStreaming}
         />
-        <button onClick={handleSend} className="send-btn">
-          Send
+        <button
+          onClick={() => void handleSend()}
+          className="send-btn"
+          disabled={isStreaming}
+        >
+          {isStreaming ? '…' : 'Send'}
         </button>
       </div>
     </div>
